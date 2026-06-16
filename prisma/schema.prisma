@@ -137,6 +137,9 @@ model Attachment {
   url          String   // Local path or file URL
   size         Int?     // size in bytes
 
+  /// Document folder/category: PLANOS | DOCUMENTOS_LEGALES | INFORMES | OTROS
+  folder       String   @default("OTROS")
+
   request_id   String
   request      Request  @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
@@ -180,14 +183,19 @@ model Inspection {
 
 /// Final resolution of the request (approval, denial, or payment)
 model Resolution {
-  id              String   @id @default(uuid())
-  comments        String
-  payment_amount  Float?   // null if no charge is generated
-  items           String[] // Detail of payment items
-  resolution_date DateTime @default(now())
+  id                  String   @id @default(uuid())
+  comments            String
+  payment_amount      Float?   // null if no charge is generated
+  items               String[] // Detail of payment items
+  resolution_date     DateTime @default(now())
 
-  request_id      String   @unique
-  request         Request  @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  /// Auto-calculated fee: JSON string with calculation breakdown
+  calculation_detail  String?  @db.Text
+  /// True when fee was auto-calculated by the system (not entered manually)
+  auto_calculated     Boolean  @default(false)
+
+  request_id          String   @unique
+  request             Request  @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
   @@map("resolutions")
 }
@@ -209,17 +217,36 @@ model AuditLog {
 }
 
 model SecretaryDecision {
-  id            String   @id @default(uuid())
-  approved      Boolean
-  remarks       String?  @db.Text
+  id                  String   @id @default(uuid())
+  approved            Boolean
+  remarks             String?  @db.Text
 
-  request_id    String   @unique
-  request       Request  @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  /// True when the secretary manually validated the professional's PDF signature
+  signature_validated Boolean  @default(false)
 
-  secretary_id  String
-  secretary     User     @relation(fields: [secretary_id], references: [id])
+  request_id          String   @unique
+  request             Request  @relation(fields: [request_id], references: [id], onDelete: Cascade)
 
-  created_at    DateTime @default(now())
+  secretary_id        String
+  secretary           User     @relation(fields: [secretary_id], references: [id])
+
+  created_at          DateTime @default(now())
 
   @@map("secretary_decisions")
+}
+
+/// Configurable fee rule for automatic payment calculation
+model FeeRule {
+  id            String      @id @default(uuid())
+  request_type  RequestType
+  zone          PropertyZone
+  base_fee      Float       // Fixed base charge (e.g. $10)
+  rate_per_m2   Float       // Per-m² charge (e.g. $0.15)
+  description   String      // Human-readable label for receipts
+
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
+
+  @@unique([request_type, zone])
+  @@map("fee_rules")
 }
