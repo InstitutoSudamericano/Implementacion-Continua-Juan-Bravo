@@ -1,0 +1,88 @@
+name: Backend CI/CD Pipeline
+
+on:
+  # Se ejecuta al hacer push a estas ramas
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+  
+  # Se ejecuta cuando se abre un Pull Request hacia estas ramas
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # -----------------------------------------------------
+  # 1. TRABAJO BASE: Integración Continua (Lint, Test, Build)
+  # -----------------------------------------------------
+  build-and-test:
+    name: Revisión de Código (CI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
+      - name: 🗄️ Generar cliente de Prisma
+        run: npm run db:generate
+
+      - name: 🧹 Ejecutar Linter (Reglas de código)
+        run: npm run lint
+
+      - name: 🧪 Ejecutar Pruebas (Unit Tests)
+        run: npm run test
+
+      - name: 🏗️ Construir proyecto (Build)
+        run: npm run build
+
+
+  # -----------------------------------------------------
+  # 2. DESPLIEGUE CONTINUO: Entorno de Pruebas (Staging)
+  # -----------------------------------------------------
+  deploy-staging:
+    name: Despliegue a Staging
+    needs: build-and-test
+    # Solo se ejecuta si los tests pasaron, es la rama 'develop' y es un evento Push
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🚀 Desplegar en servidor de Pruebas
+        run: |
+          echo "Iniciando despliegue en STAGING..."
+          echo "Aquí configurarás tu conexión SSH o API hacia el VPS del GAD Cañar."
+          # Ejemplo de comando futuro:
+          # ssh user@staging.gadcanar.gob.ec "cd /var/www/backend && git pull && npm install && pm2 restart backend"
+
+
+  # -----------------------------------------------------
+  # 3. DESPLIEGUE CONTINUO: Entorno de Producción
+  # -----------------------------------------------------
+  deploy-production:
+    name: Despliegue a Producción
+    needs: build-and-test
+    # Solo se ejecuta si los tests pasaron, es la rama 'main' y es un evento Push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🚀 Desplegar en servidor en Vivo
+        run: |
+          echo "Iniciando despliegue en PRODUCCIÓN..."
+          echo "Esta acción actualizará el sistema final para los ciudadanos."
+          # Ejemplo de comando futuro (con variables secretas de GitHub):
+          # ssh -i ${{ secrets.SSH_PRIVATE_KEY }} user@api.gadcanar.gob.ec "cd /var/www/backend && git pull && pm2 reload backend"
